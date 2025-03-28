@@ -1,0 +1,39 @@
+{
+  "Version": 1,
+  "Hash": "GUfszAc0KqHPh/cl4UsEZVuPjMHccB/RG0arZLoYsgg=",
+  "Source": "WebDataSortingJ",
+  "BasePath": "_content/WebDataSortingJ",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "WebDataSortingJ\\wwwroot",
+      "Source": "WebDataSortingJ",
+      "ContentRoot": "C:\\Users\\Asus\\WebDataSortingJ\\wwwroot\\",
+      "BasePath": "_content/WebDataSortingJ",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\Asus\\WebDataSortingJ\\wwwroot\\index.html",
+      "SourceId": "WebDataSortingJ",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\Asus\\WebDataSortingJ\\wwwroot\\",
+      "BasePath": "_content/WebDataSortingJ",
+      "RelativePath": "index.html",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\index.html"
+    }
+  ]
+}

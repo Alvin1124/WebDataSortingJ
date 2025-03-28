@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>File Sorting</title>
+</head>
+<body>
+    <h1>File Sorting Application</h1>
+    <form id="sortForm">
+        <label for="processType">Select Process:</label>
+        <select id="processType" name="processType">
+            <option value="dispatch">Dispatch</option>
+            <option value="scandetail">Scan Detail</option>
+        </select>
+        <br><br>
+        <label for="inputFolder">Input Folder Path:</label>
+        <input type="text" id="inputFolder" name="inputFolder" placeholder="C:\Path\To\InputFolder" required>
+        <br><br>
+        <label for="destinationFolder">Destination Folder Path:</label>
+        <input type="text" id="destinationFolder" name="destinationFolder" placeholder="C:\Path\To\DestinationFolder" required>
+        <br><br>
+        <button type="button" onclick="sortFiles()">Sort Files</button>
+    </form>
+    <pre id="response"></pre>
+    <script>
+        async function login() {
+            const response = await fetch('/Auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: "admin", password: "password" })
+            });
+
+            const data = await response.json();
+            localStorage.setItem("token", data.token);
+            alert("Login successful!");
+        }
+
+        async function sortFiles() {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                alert("Please log in first!");
+                return;
+            }
+
+            const processType = document.getElementById("processType").value;
+            const endpoint = processType === "dispatch" ? "/Sort/sortdispatch" : "/Sort/sortscandetail";
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            const data = await response.json();
+            document.getElementById('response').innerText = JSON.stringify(data, null, 2);
+        }
+    </script>
+    <button onclick="login()">Login</button>
+    <button onclick="sortFiles()">Sort Files</button>
+
+</body>
+</html>
