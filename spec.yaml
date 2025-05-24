@@ -1,0 +1,16 @@
+name: web-data-sorting
+region: sgp # Change this if needed
+services:
+  - name: web-data-sorting
+    github:
+      branch: WebDataSortingJ
+      deploy_on_push: true
+      repo: alvinlgy/WebDataSortingJ # Replace with your actual repo
+    http_port: 80
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DOTNET_RUNNING_IN_CONTAINER
+        value: "true"
