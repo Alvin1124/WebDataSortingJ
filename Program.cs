@@ -1195,6 +1195,7 @@ app.MapPost("/sortdispatch", async (HttpContext context) =>
 }
     }
 }*/
+// ✅ using directives
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -1218,17 +1219,35 @@ namespace WebDataSortingJ
         public static void Main(string[] args)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.ListenAnyIP(8080);
+            });
+
             builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
-            // 🔒 Load JWT Secret from Environment Variables
-            var jwtKey = Environment.GetEnvironmentVariable("JWT_SECRET") 
-                         ?? throw new Exception("JWT Key is missing from environment variables.");
             var jwtSettings = builder.Configuration.GetSection("Jwt");
+            string jwtKey = Environment.GetEnvironmentVariable("JWT_SECRET");
+
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                if (builder.Environment.IsDevelopment())
+                {
+                    Console.WriteLine("[Warning] JWT_SECRET not found. Using fallback dev key.");
+                    jwtKey = "MyFallbackDevSecret123456!";
+                }
+                else
+                {
+                    throw new Exception("JWT Key is missing from environment variables.");
+                }
+            }
+
             var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
             var key = new SymmetricSecurityKey(keyBytes);
 
-            // 🌐 Configure JWT Authentication
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
@@ -1246,13 +1265,12 @@ namespace WebDataSortingJ
 
             builder.Services.AddAuthorization();
 
-            // 🌍 Enable CORS (Adjust if needed)
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll",
-                    builder => builder.AllowAnyOrigin()
-                                      .AllowAnyMethod()
-                                      .AllowAnyHeader());
+                options.AddPolicy("AllowAll", policy => policy
+                    .AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader());
             });
 
             builder.Services.AddEndpointsApiExplorer();
@@ -1260,13 +1278,20 @@ namespace WebDataSortingJ
 
             var app = builder.Build();
 
-            // Enable Static Files and Authentication
-            app.UseStaticFiles();
+            // ✅ Serve index.html from wwwroot
+            app.UseDefaultFiles();    // looks for index.html
+            app.UseStaticFiles();     // serves it
+
             app.UseCors("AllowAll");
+
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
+
             app.UseAuthentication();
             app.UseAuthorization();
 
-            // 📌 Enable Swagger in Development
             if (app.Environment.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -1277,21 +1302,19 @@ namespace WebDataSortingJ
                 });
             }
 
-            // 🔐 Authentication Endpoint (JWT Token Generation)
+            // ✅ DO NOT MAP "/" — ensure index.html is served
+            // app.MapGet("/", () => Results.Ok(new { message = "Welcome to the Excel Sorting API using EPPlus!" }));
+
+            // ✅ API Routes
             app.MapPost("/login", (HttpContext context) =>
             {
                 if (!context.Request.HasJsonContentType())
-                {
                     return Results.BadRequest("Incorrect Content-Type: application/json required.");
-                }
-                var tokenHandler = new JwtSecurityTokenHandler();
 
+                var tokenHandler = new JwtSecurityTokenHandler();
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, "user")
-                    }),
+                    Subject = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "user") }),
                     Expires = DateTime.UtcNow.AddMinutes(60),
                     Issuer = jwtSettings["Issuer"],
                     Audience = jwtSettings["Audience"],
@@ -1305,34 +1328,22 @@ namespace WebDataSortingJ
                 return Results.Ok(new { token = tokenHandler.WriteToken(token) });
             });
 
-            // 📌 Debug Endpoint
             app.MapGet("/debug", () => Results.Ok(new { message = "Debug endpoint working." }));
 
-            // 🔐 Protected Endpoints
             app.MapPost("/sortdispatch", async (HttpContext context) =>
             {
                 if (!context.User.Identity?.IsAuthenticated ?? false)
                     return Results.Unauthorized();
 
-                try
-                {
-                    if (!context.Request.HasFormContentType)
-                        return Results.BadRequest(new { error = "Incorrect Content-Type. Expected 'multipart/form-data'." });
+                var form = await context.Request.ReadFormAsync();
+                string inputFolder = form["inputFolder"];
+                string destinationFolder = form["destinationFolder"];
 
-                    var form = await context.Request.ReadFormAsync();
-                    string inputFolder = form["inputFolder"];
-                    string destinationFolder = form["destinationFolder"];
+                if (string.IsNullOrWhiteSpace(inputFolder) || string.IsNullOrWhiteSpace(destinationFolder))
+                    return Results.BadRequest(new { error = "Please provide both inputFolder and destinationFolder." });
 
-                    if (string.IsNullOrWhiteSpace(inputFolder) || string.IsNullOrWhiteSpace(destinationFolder))
-                        return Results.BadRequest(new { error = "Please provide both inputFolder and destinationFolder." });
-
-                    List<string> logs = EPPlusSortDispatch(inputFolder, destinationFolder);
-                    return Results.Ok(new { message = "Dispatch Sorting completed.", details = logs });
-                }
-                catch (Exception ex)
-                {
-                    return Results.Problem($"An error occurred in Dispatch Sorting: {ex.Message}");
-                }
+                var logs = EPPlusSortDispatch(inputFolder, destinationFolder);
+                return Results.Ok(new { message = "Dispatch Sorting completed.", details = logs });
             }).RequireAuthorization();
 
             app.MapPost("/sortscandetail", async (HttpContext context) =>
@@ -1340,31 +1351,20 @@ namespace WebDataSortingJ
                 if (!context.User.Identity?.IsAuthenticated ?? false)
                     return Results.Unauthorized();
 
-                try
-                {
-                    var form = await context.Request.ReadFormAsync();
-                    string inputFolder = form["inputFolder"];
-                    string destinationFolder = form["destinationFolder"];
+                var form = await context.Request.ReadFormAsync();
+                string inputFolder = form["inputFolder"];
+                string destinationFolder = form["destinationFolder"];
 
-                    if (string.IsNullOrWhiteSpace(inputFolder) || string.IsNullOrWhiteSpace(destinationFolder))
-                        return Results.BadRequest(new { error = "Please provide both inputFolder and destinationFolder." });
+                if (string.IsNullOrWhiteSpace(inputFolder) || string.IsNullOrWhiteSpace(destinationFolder))
+                    return Results.BadRequest(new { error = "Please provide both inputFolder and destinationFolder." });
 
-                    List<string> logs = EPPlusSortScanDetail(inputFolder, destinationFolder);
-                    return Results.Ok(new { message = "Scan Detail Sorting completed.", details = logs });
-                }
-                catch (Exception ex)
-                {
-                    return Results.Problem($"An error occurred in Scan Detail Sorting: {ex.Message}");
-                }
+                var logs = EPPlusSortScanDetail(inputFolder, destinationFolder);
+                return Results.Ok(new { message = "Scan Detail Sorting completed.", details = logs });
             }).RequireAuthorization();
 
-            // 📌 Root Endpoint
-            app.MapGet("/", () => Results.Ok(new { message = "Welcome to the Excel Sorting API using EPPlus!" }));
-
-            app.Run();
+            app.Run(); // ✅ RUN the app
         }
 
-        // 📌 EPPlus Sort Dispatch
         public static List<string> EPPlusSortDispatch(string inputFolder, string destinationFolder)
         {
             var logs = new List<string>();
@@ -1372,7 +1372,6 @@ namespace WebDataSortingJ
             {
                 Directory.CreateDirectory(destinationFolder);
                 string[] excelFiles = Directory.GetFiles(inputFolder, "*.xlsx", SearchOption.AllDirectories);
-                if (excelFiles.Length == 0) return new List<string> { "No Excel files found in the input folder." };
 
                 foreach (var file in excelFiles)
                 {
@@ -1423,96 +1422,77 @@ namespace WebDataSortingJ
             return logs;
         }
 
-
         public static List<string> EPPlusSortScanDetail(string inputFolder, string destinationFolder)
         {
             var logs = new List<string>();
-
             try
             {
                 Directory.CreateDirectory(destinationFolder);
-
                 string[] excelFiles = Directory.GetFiles(inputFolder, "*.xlsx", SearchOption.AllDirectories);
-                if (excelFiles.Length == 0)
-                {
-                    logs.Add("No Excel files found in the input folder.");
-                    return logs;
-                }
 
                 foreach (var file in excelFiles)
                 {
-                    if (Path.GetFileName(file).StartsWith("~$"))
-                        continue;
+                    if (Path.GetFileName(file).StartsWith("~$")) continue;
 
                     try
                     {
-                        FileInfo fi = new FileInfo(file);
-                        using (var package = new ExcelPackage(fi))
+                        using var package = new ExcelPackage(new FileInfo(file));
+                        var ws = package.Workbook.Worksheets[0];
+                        if (ws.Dimension == null) continue;
+
+                        int endRow = ws.Dimension.End.Row;
+                        int highlightedCount = 0;
+                        var encounteredValues = new HashSet<string>();
+
+                        for (int r = 2; r <= endRow; r++)
                         {
-                            var ws = package.Workbook.Worksheets[0];
-                            if (ws.Dimension == null)
+                            var cell = ws.Cells[r, 1].Value;
+                            if (cell == null) continue;
+
+                            string cellText = cell.ToString() ?? "";
+                            if (cellText.StartsWith("666") && cellText.EndsWith("1"))
                             {
-                                logs.Add($"No data found in {Path.GetFileName(file)}.");
-                                continue;
+                                ws.Cells[r, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                ws.Cells[r, 1].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+                                highlightedCount++;
                             }
-
-                            int endRow = ws.Dimension.End.Row;
-                            int highlightedCount = 0;
-                            var encounteredValues = new HashSet<string>();
-
-                            // Sample logic: process data in column A (adjust as needed)
-                            for (int r = 2; r <= endRow; r++)
+                            else if (!encounteredValues.Contains(cellText))
                             {
-                                var cell = ws.Cells[r, 1].Value;
-                                if (cell == null)
-                                    continue;
-                                string cellText = cell.ToString() ?? "";
-                                if (cellText.StartsWith("666"))
-                                {
-                                    if (cellText.EndsWith("1"))
-                                    {
-                                        ws.Cells[r, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                                        ws.Cells[r, 1].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
-                                        highlightedCount++;
-                                    }
-                                }
-                                else
-                                {
-                                    if (!encounteredValues.Contains(cellText))
-                                    {
-                                        ws.Cells[r, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                                        ws.Cells[r, 1].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
-                                        highlightedCount++;
-                                        encounteredValues.Add(cellText);
-                                    }
-                                }
+                                ws.Cells[r, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                ws.Cells[r, 1].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+                                highlightedCount++;
+                                encounteredValues.Add(cellText);
                             }
-
-                            ws.Cells[endRow + 2, 3].Value = $"{highlightedCount} points";
-                            string newFileName = $"{Path.GetFileNameWithoutExtension(file)}_updated.xlsx";
-                            string newFilePath = Path.Combine(destinationFolder, newFileName);
-                            package.SaveAs(new FileInfo(newFilePath));
-
-                            logs.Add($"Processed {Path.GetFileName(file)}: Highlighted Count = {highlightedCount}");
                         }
+
+                        ws.Cells[endRow + 2, 3].Value = $"{highlightedCount} points";
+                        string newFilePath = Path.Combine(destinationFolder, $"{Path.GetFileNameWithoutExtension(file)}_updated.xlsx");
+                        package.SaveAs(new FileInfo(newFilePath));
+
+                        logs.Add($"Processed {Path.GetFileName(file)}: Highlighted Count = {highlightedCount}");
                     }
                     catch (Exception ex)
                     {
                         logs.Add($"Error processing {Path.GetFileName(file)}: {ex.Message}");
                     }
                 }
-
                 logs.Add("Scan Detail Sorting completed successfully using EPPlus!");
             }
             catch (Exception ex)
             {
                 logs.Add("General error in EPPlusSortScanDetail: " + ex.Message);
             }
-
             return logs;
         }
     }
 }
+
+
+
+
+
+
+
 
 
 

@@ -6,36 +6,42 @@
 </head>
 <body>
     <h1>File Sorting Application</h1>
-    <form id="sortForm">
+
+    <form id="uploadForm">
         <label for="processType">Select Process:</label>
         <select id="processType" name="processType">
             <option value="dispatch">Dispatch</option>
             <option value="scandetail">Scan Detail</option>
         </select>
         <br><br>
-        <label for="inputFolder">Input Folder Path:</label>
-        <input type="text" id="inputFolder" name="inputFolder" placeholder="C:\Path\To\InputFolder" required>
+
+        <label for="files">Select Files:</label>
+        <input type="file" id="files" name="files" multiple required>
         <br><br>
-        <label for="destinationFolder">Destination Folder Path:</label>
-        <input type="text" id="destinationFolder" name="destinationFolder" placeholder="C:\Path\To\DestinationFolder" required>
-        <br><br>
-        <button type="button" onclick="sortFiles()">Sort Files</button>
+
+        <button type="button" onclick="uploadAndSort()">Upload & Sort</button>
     </form>
+
     <pre id="response"></pre>
+
     <script>
         async function login() {
-            const response = await fetch('/Auth/login', {
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: "admin", password: "password" })
             });
 
             const data = await response.json();
-            localStorage.setItem("token", data.token);
-            alert("Login successful!");
+            if (data.token) {
+                localStorage.setItem("token", data.token);
+                alert("Login successful!");
+            } else {
+                alert("Login failed");
+            }
         }
 
-        async function sortFiles() {
+        async function uploadAndSort() {
             const token = localStorage.getItem("token");
             if (!token) {
                 alert("Please log in first!");
@@ -43,19 +49,33 @@
             }
 
             const processType = document.getElementById("processType").value;
+            const files = document.getElementById("files").files;
+
+            if (files.length === 0) {
+                alert("Please select files to upload.");
+                return;
+            }
+
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append("files", file);
+            }
+
             const endpoint = processType === "dispatch" ? "/Sort/sortdispatch" : "/Sort/sortscandetail";
 
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                body: formData
             });
 
             const data = await response.json();
-            document.getElementById('response').innerText = JSON.stringify(data, null, 2);
+            document.getElementById("response").innerText = JSON.stringify(data, null, 2);
         }
     </script>
-    <button onclick="login()">Login</button>
-    <button onclick="sortFiles()">Sort Files</button>
 
+    <button onclick="login()">Login</button>
 </body>
 </html>
