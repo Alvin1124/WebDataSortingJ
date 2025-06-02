@@ -25,6 +25,8 @@
     <pre id="response"></pre>
 
     <script>
+        // Login disabled for now
+        /*
         async function login() {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
@@ -40,14 +42,9 @@
                 alert("Login failed");
             }
         }
+        */
 
         async function uploadAndSort() {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                alert("Please log in first!");
-                return;
-            }
-
             const processType = document.getElementById("processType").value;
             const files = document.getElementById("files").files;
 
@@ -65,9 +62,7 @@
 
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                },
+                // Auth header removed
                 body: formData
             });
 
@@ -76,6 +71,7 @@
         }
     </script>
 
-    <button onclick="login()">Login</button>
+    <!-- Login temporarily disabled -->
+    <!-- <button onclick="login()">Login</button> -->
 </body>
 </html>
