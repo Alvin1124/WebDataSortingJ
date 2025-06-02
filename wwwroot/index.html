@@ -58,16 +58,28 @@
                 formData.append("files", file);
             }
 
-            const endpoint = processType === "dispatch" ? "/Sort/sortdispatch" : "/Sort/sortscandetail";
+            const endpoint = processType === "dispatch"
+                ? "https://seashell-app-qw9sw.ondigitalocean.app/Sort/sortdispatch"
+                : "https://seashell-app-qw9sw.ondigitalocean.app/Sort/sortscandetail";
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                // Auth header removed
-                body: formData
-            });
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    body: formData
+                });
 
-            const data = await response.json();
-            document.getElementById("response").innerText = JSON.stringify(data, null, 2);
+                const text = await response.text();
+                try {
+                    const data = JSON.parse(text);
+                    document.getElementById("response").innerText = JSON.stringify(data, null, 2);
+                } catch (e) {
+                    // Not JSON — show raw text
+                    document.getElementById("response").innerText = text || "No response body.";
+                }
+
+            } catch (error) {
+                document.getElementById("response").innerText = "Error: " + error.message;
+            }
         }
     </script>
 
