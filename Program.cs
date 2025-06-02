@@ -1279,8 +1279,8 @@ namespace WebDataSortingJ
             var app = builder.Build();
 
             // ✅ Serve index.html from wwwroot
-            app.UseDefaultFiles();    // looks for index.html
-            app.UseStaticFiles();     // serves it
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
 
             app.UseCors("AllowAll");
 
@@ -1289,8 +1289,9 @@ namespace WebDataSortingJ
                 app.UseHttpsRedirection();
             }
 
-            app.UseAuthentication();
-            app.UseAuthorization();
+            // 🟥 Temporarily Disable Auth Middleware
+            // app.UseAuthentication();
+            // app.UseAuthorization();
 
             if (app.Environment.IsDevelopment())
             {
@@ -1301,9 +1302,6 @@ namespace WebDataSortingJ
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Excel Sorting API V1");
                 });
             }
-
-            // ✅ DO NOT MAP "/" — ensure index.html is served
-            // app.MapGet("/", () => Results.Ok(new { message = "Welcome to the Excel Sorting API using EPPlus!" }));
 
             // ✅ API Routes
             app.MapPost("/login", (HttpContext context) =>
@@ -1330,10 +1328,11 @@ namespace WebDataSortingJ
 
             app.MapGet("/debug", () => Results.Ok(new { message = "Debug endpoint working." }));
 
+            // ✅ Temporarily allow anonymous access
             app.MapPost("/sortdispatch", async (HttpContext context) =>
             {
-                if (!context.User.Identity?.IsAuthenticated ?? false)
-                    return Results.Unauthorized();
+                // if (!context.User.Identity?.IsAuthenticated ?? false)
+                //     return Results.Unauthorized();
 
                 var form = await context.Request.ReadFormAsync();
                 string inputFolder = form["inputFolder"];
@@ -1344,12 +1343,12 @@ namespace WebDataSortingJ
 
                 var logs = EPPlusSortDispatch(inputFolder, destinationFolder);
                 return Results.Ok(new { message = "Dispatch Sorting completed.", details = logs });
-            }).RequireAuthorization();
+            });
 
             app.MapPost("/sortscandetail", async (HttpContext context) =>
             {
-                if (!context.User.Identity?.IsAuthenticated ?? false)
-                    return Results.Unauthorized();
+                // if (!context.User.Identity?.IsAuthenticated ?? false)
+                //     return Results.Unauthorized();
 
                 var form = await context.Request.ReadFormAsync();
                 string inputFolder = form["inputFolder"];
@@ -1360,7 +1359,7 @@ namespace WebDataSortingJ
 
                 var logs = EPPlusSortScanDetail(inputFolder, destinationFolder);
                 return Results.Ok(new { message = "Scan Detail Sorting completed.", details = logs });
-            }).RequireAuthorization();
+            });
 
             app.Run(); // ✅ RUN the app
         }
@@ -1486,6 +1485,7 @@ namespace WebDataSortingJ
         }
     }
 }
+
 
 
 
